@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "hdri.coast_sky",
+      "kind": "hdri",
+      "path": "hdri/coast_sky.ktx2",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_1k.hdr",
+      "page_url": "https://polyhaven.com/a/kloppenheim_06",
+      "author": "Greg Zaal",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "procedural_gradient_cubemap",
+      "ultra_pack": false
+    },
+    {
+      "id": "texture.basalt.color",
+      "kind": "texture",
+      "path": "textures/basalt_color.ktx2",
+      "source_url": "https://ambientcg.com/get?file=Rock030_1K-JPG.zip#Rock030_1K-JPG_Color.jpg",
+      "page_url": "https://ambientcg.com/view?id=Rock030",
+      "author": "ambientCG (Lennart Demes)",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "flat_color",
+      "ultra_pack": false
+    },
+    {
+      "id": "texture.basalt.normal",
+      "kind": "texture",
+      "path": "textures/basalt_normal.ktx2",
+      "source_url": "https://ambientcg.com/get?file=Rock030_1K-JPG.zip#Rock030_1K-JPG_NormalGL.jpg",
+      "page_url": "https://ambientcg.com/view?id=Rock030",
+      "author": "ambientCG (Lennart Demes)",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "mesh_normals",
+      "ultra_pack": false
+    },
+    {
+      "id": "texture.basalt.roughness",
+      "kind": "texture",
+      "path": "textures/basalt_roughness.ktx2",
+      "source_url": "https://ambientcg.com/get?file=Rock030_1K-JPG.zip#Rock030_1K-JPG_Roughness.jpg",
+      "page_url": "https://ambientcg.com/view?id=Rock030",
+      "author": "ambientCG (Lennart Demes)",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "constant_roughness",
+      "ultra_pack": false
+    },
+    {
+      "id": "texture.seafloor_sand.color",
+      "kind": "texture",
+      "path": "textures/seafloor_sand_color.ktx2",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_diff_1k.jpg",
+      "page_url": "https://polyhaven.com/a/coast_sand_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "flat_color",
+      "ultra_pack": false
+    },
+    {
+      "id": "texture.seafloor_sand.normal",
+      "kind": "texture",
+      "path": "textures/seafloor_sand_normal.ktx2",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_nor_gl_1k.jpg",
+      "page_url": "https://polyhaven.com/a/coast_sand_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "mesh_normals",
+      "ultra_pack": false
+    },
+    {
+      "id": "texture.seafloor_sand.roughness",
+      "kind": "texture",
+      "path": "textures/seafloor_sand_roughness.ktx2",
+      "source_url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_rough_1k.jpg",
+      "page_url": "https://polyhaven.com/a/coast_sand_01",
+      "author": "Rob Tuytel",
+      "license": "CC0-1.0",
+      "source_sha256": null,
+      "sha256": null,
+      "fallback": "constant_roughness",
+      "ultra_pack": false
+    }
+  ]
+}

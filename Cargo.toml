@@ -1,0 +1,98 @@
+[workspace]
+resolver = "3"
+members = ["crates/game_core", "crates/game", "crates/launcher", "crates/tools"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "LicenseRef-Proprietary"
+
+# Every version is pinned exactly (`=x.y.z`). Bevy is upgraded only between
+# milestones, and only after every plugin below has a release for the new version.
+# See docs/ARCHITECTURE.md#dependency-policy.
+[workspace.dependencies]
+# Internal crates
+game_core = { path = "crates/game_core", default-features = false }
+
+# Engine
+bevy = { version = "=0.20.1", default-features = false }
+
+# Bevy plugins (all verified against bevy 0.20.1)
+avian3d = { version = "=0.8.0", default-features = false }
+# big_space has no stable release for bevy 0.20 yet; the RC targets ^0.20.0-rc.2.
+big_space = { version = "=0.14.0-rc.0", default-features = false }
+bevy_hanabi = { version = "=0.20.0", default-features = false }
+bevy_kira_audio = { version = "=0.27.1", default-features = false }
+leafwing-input-manager = { version = "=0.22.0", default-features = false }
+bevy_egui = { version = "=0.43.1", default-features = false }
+bevy-inspector-egui = { version = "=0.38.0", default-features = false }
+bevy_common_assets = { version = "=0.18.0", default-features = false }
+
+# Data and serialization
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+ron = "=0.12.3"
+
+# Localization
+fluent-bundle = "=0.16.0"
+unic-langid = { version = "=0.9.6", features = ["macros"] }
+
+# Utilities
+anyhow = "=1.0.104"
+thiserror = "=2.0.21"
+clap = { version = "=4.6.7", features = ["derive"] }
+directories = "=6.0.0"
+rand = { version = "=0.10.3", default-features = false }
+rand_chacha = { version = "=0.10.0", default-features = false }
+noise = "=0.9.0"
+rayon = "=1.12.0"
+sha2 = "=0.11.1"
+zstd = "=0.14.3"
+image = { version = "=0.25.10", default-features = false }
+intel_tex_2 = "=0.5.0"
+ktx2 = "=0.5.0"
+
+# Launcher
+eframe = { version = "=0.37.0", default-features = false }
+sysinfo = { version = "=0.40.1", default-features = false }
+
+# Reserved for later milestones (pinned now, not yet used by any crate):
+# steamworks = "=0.13.1"   (M6, behind the `Platform` trait)
+# lightyear  = "=0.31.0"   (stretch: Versus/Co-op)
+# ed25519-dalek = "=3.0.0" (M6, signed integrity manifest)
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+# Bevy systems routinely take many params and complex query types.
+too_many_arguments = "allow"
+type_complexity = "allow"
+
+# --- Profiles tuned for an 8 GB Apple M1 -------------------------------------
+# Our crates: light optimization, fast incremental builds.
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+
+# Dependencies (Bevy, wgpu, physics...): full optimization so dev builds run at
+# playable frame rates. Built once and cached. No debug info keeps target/ small.
+[profile.dev.package."*"]
+opt-level = 3
+debug = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+strip = "debuginfo"
+panic = "unwind"
+
+# Shipping build: slower to compile, smaller and faster binary.
+[profile.dist]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"

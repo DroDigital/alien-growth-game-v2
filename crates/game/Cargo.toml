@@ -1,0 +1,55 @@
+[package]
+name = "game"
+description = "The playable app."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+default-run = "game"
+
+[[bin]]
+name = "game"
+path = "src/main.rs"
+
+[features]
+default = []
+# Development build: Bevy dynamic linking (fast incremental links), asset hot
+# reload, and the egui debug panels. Never enabled for release builds.
+dev = ["bevy/dynamic_linking", "bevy/file_watcher", "debug-ui"]
+debug-ui = ["dep:bevy_egui", "dep:bevy-inspector-egui"]
+
+[dependencies]
+game_core = { workspace = true, features = ["bevy"] }
+bevy = { workspace = true, features = [
+    "3d",
+    "ui",
+    "jpeg",
+    "ktx2",
+    "zstd_rust",
+    "tonemapping_luts",
+    "serialize",
+    "bevy_ui_widgets",
+] }
+avian3d = { workspace = true, features = ["3d", "parry-f32", "default-collider", "parallel", "bevy_scene", "collider-from-mesh", "debug-plugin", "xpbd_joints"] }
+big_space = { workspace = true, features = ["std", "multi_threaded", "i64"] }
+bevy_hanabi = { workspace = true, features = ["3d"] }
+bevy_kira_audio = { workspace = true, features = ["ogg", "wav", "spatial"] }
+leafwing-input-manager = { workspace = true, features = ["keyboard", "mouse", "gamepad", "asset"] }
+bevy_common_assets = { workspace = true, features = ["ron", "json"] }
+bevy_egui = { workspace = true, optional = true, features = ["render", "default_fonts", "manage_clipboard"] }
+bevy-inspector-egui = { workspace = true, optional = true, features = ["bevy", "3d", "bevy_pbr", "bevy_render"] }
+serde.workspace = true
+serde_json.workspace = true
+ron.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+rand = { workspace = true, features = ["std"] }
+rand_chacha.workspace = true
+noise.workspace = true
+# Process memory for the benchmark/perf overlay (Bevy's sysinfo diagnostics are
+# disabled under dynamic linking).
+sysinfo = { workspace = true, features = ["system"] }
+
+[lints]
+workspace = true

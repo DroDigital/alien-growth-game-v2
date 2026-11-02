@@ -1,0 +1,19 @@
+# Build settings for the development machine (Apple M1, 8 GB unified memory).
+# 4 parallel jobs keeps peak memory well under 8 GB while Bevy compiles.
+[build]
+jobs = 4
+
+[env]
+# Bevy resolves `assets/` relative to BEVY_ASSET_ROOT. Point it at the
+# workspace root so `cargo run -p game` finds assets/, data/ and shaders/.
+BEVY_ASSET_ROOT = { value = ".", relative = true }
+
+[alias]
+# Dev run with Bevy dynamic linking, file watching (hot reload) and debug UI.
+dev = "run -p game --features dev --"
+# Tests that reuse the `cargo dev` build of Bevy (same feature set, no rebuild).
+t = "test -p game_core -p game --features game/dev"
+# Launcher and tools tests (no Bevy rendering stack).
+t-tools = "test -p launcher -p tools"
+launcher = "run -p launcher --"
+agtool = "run -p tools --release --"
