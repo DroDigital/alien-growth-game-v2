@@ -5,11 +5,18 @@ unsigned artifacts: `alien-growth-macos-arm64` and `alien-growth-windows-x64`.
 
 ## Build
 
+Fetch and verify assets first: `build.sh` copies `assets/` and `CREDITS.md` into the staged
+build, so anything fetched afterwards would not be in it.
+
 ```bash
-DIST=1 tools/build.sh mac release        # fat-LTO shipping profile
-python3 tools/fetch_assets.py --locked --strict   # before packaging: every base asset present
+python3 tools/fetch_assets.py --locked --strict
 cargo agtool verify-assets --require-all
+DIST=1 tools/build.sh mac release
+cargo agtool --root dist/mac-release verify-assets --require-all
 ```
+
+The last command checks the staged copy (`dist/mac-release/assets`) against the manifest, so a
+build missing assets or carrying stale ones fails before signing.
 
 Output: `dist/<platform>-release/` containing `launcher`, `game`, `assets/`, `data/`,
 `shaders/` and `CREDITS.md`.

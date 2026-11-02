@@ -36,8 +36,10 @@ impl RunningGame {
 pub fn launch(exe: &Path, args: &[String]) -> std::io::Result<RunningGame> {
     let mut cmd = Command::new(exe);
     cmd.args(args);
+    // The caller's working directory is kept so relative arguments (output
+    // paths, AGG_USER_DIR) mean the same thing to the game as to the caller.
+    // Content is found next to the executable regardless (content_root()).
     if let Some(dir) = exe.parent() {
-        cmd.current_dir(dir);
         // Dev builds link Bevy dynamically; the dylib sits next to the game.
         // (Windows finds DLLs next to the executable on its own.)
         let var = if cfg!(target_os = "macos") {

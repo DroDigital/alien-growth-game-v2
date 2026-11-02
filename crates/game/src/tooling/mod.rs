@@ -30,9 +30,12 @@ impl Plugin for ToolingPlugin {
             }
             Mode::Play => {}
         }
-        // Tooling modes must never hang: hard timeout.
+        // Tooling modes must never hang: hard timeout. The benchmark only
+        // starts its clock after warm-up, so it gets its duration on top.
         if !matches!(mode, Mode::Play) {
-            app.add_systems(Update, watchdog.run_if(in_state(AppState::Tooling)));
+            let limit = watchdog_limit_secs(&mode);
+            app.insert_resource(WatchdogLimit(limit))
+                .add_systems(Update, watchdog.run_if(in_state(AppState::Tooling)));
         }
     }
 }
@@ -74,12 +77,40 @@ fn track_pipeline_settle(status: Res<PipelineStatus>, mut settle: ResMut<Pipelin
     settle.last_total = total;
 }
 
-/// Seconds before a tooling mode gives up (software rasterizers are slow).
-const WATCHDOG_SECS: f32 = 600.0;
+/// Seconds of startup and shader warm-up a tooling mode may take before it
+/// gives up (software rasterizers are slow).
+const WATCHDOG_SECS: f64 = 600.0;
 
-fn watchdog(time: Res<Time<Real>>, mut exit: MessageWriter<AppExit>) {
-    if time.elapsed_secs() > WATCHDOG_SECS {
-        error!("tooling mode timed out after {WATCHDOG_SECS}s");
+#[derive(Resource, Debug, Clone, Copy)]
+struct WatchdogLimit(f64);
+
+/// Total time allowed for a tooling mode: the warm-up allowance plus, for the
+/// benchmark, the requested measurement duration.
+pub fn watchdog_limit_secs(mode: &Mode) -> f64 {
+    match mode {
+        Mode::Benchmark { secs, .. } => WATCHDOG_SECS + secs,
+        _ => WATCHDOG_SECS,
+    }
+}
+
+fn watchdog(time: Res<Time<Real>>, limit: Res<WatchdogLimit>, mut exit: MessageWriter<AppExit>) {
+    if time.elapsed_secs_f64() > limit.0 {
+        error!("tooling mode timed out after {:.0}s", limit.0);
         exit.write(AppExit::from_code(3));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn benchmark_watchdog_includes_measurement_time() {
+        let bench = Mode::Benchmark {
+            secs: 600.0,
+            out: None,
+        };
+        assert!(watchdog_limit_secs(&bench) > 600.0 + WATCHDOG_SECS - 1.0);
+        assert_eq!(watchdog_limit_secs(&Mode::Warmup), WATCHDOG_SECS);
     }
 }

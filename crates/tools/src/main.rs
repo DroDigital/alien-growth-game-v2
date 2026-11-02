@@ -35,8 +35,8 @@ enum Cmd {
         output: PathBuf,
         #[arg(long, value_enum)]
         kind: texconv::Kind,
-        /// Largest side in texels (downscales by halving).
-        #[arg(long)]
+        /// Largest side in texels (downscales by halving). Must be at least 1.
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         max_size: Option<u32>,
         /// Zstandard level for supercompression (0 disables).
         #[arg(long, default_value_t = 19)]

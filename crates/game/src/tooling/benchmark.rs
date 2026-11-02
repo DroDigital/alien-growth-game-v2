@@ -6,6 +6,7 @@ use super::PipelineSettle;
 use crate::boot::{LaunchContext, PlayerSettings};
 use crate::cli::Mode;
 use crate::graphics::RenderTargets;
+use crate::graphics::pipelines::PipelineStatus;
 use crate::scenes::{LoadScene, OrbitShot};
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
@@ -56,6 +57,7 @@ fn record(
     ctx: Res<LaunchContext>,
     settings: Res<PlayerSettings>,
     settle: Res<PipelineSettle>,
+    status: Res<PipelineStatus>,
     targets: Res<RenderTargets>,
     adapter: Option<Res<RenderAdapterInfo>>,
     mut state: ResMut<BenchState>,
@@ -65,6 +67,17 @@ fn record(
         return;
     };
     if state.done {
+        return;
+    }
+    // Missing materials or effects make frames cheaper, so numbers measured
+    // with failed pipelines would be misleading: fail instead of reporting.
+    if status.failed() > 0 {
+        error!(
+            "benchmark aborted: {} render pipelines failed to compile",
+            status.failed()
+        );
+        state.done = true;
+        exit.write(AppExit::from_code(1));
         return;
     }
     if !state.measuring {

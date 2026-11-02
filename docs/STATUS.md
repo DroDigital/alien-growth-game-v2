@@ -93,4 +93,4 @@ _Last updated: M0 Foundation (2026-11-02)._
 
 1. Read `docs/ARCHITECTURE.md`.
 2. `cargo dev` runs the game; `cargo t` runs the tests.
-3. `cargo dev -- --screenshot testbed low screenshots/x.png` checks visuals.
+3. `cargo dev --screenshot testbed low screenshots/x.png` checks visuals.

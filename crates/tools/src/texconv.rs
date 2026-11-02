@@ -288,6 +288,9 @@ fn equirect_to_face(src: &ImageF, face: usize, size: u32) -> ImageF {
 
 /// Converts one source image to KTX2 bytes.
 pub fn convert(input: &Path, opts: &Options) -> Result<Vec<u8>> {
+    if opts.max_size == Some(0) {
+        bail!("max_size must be at least 1");
+    }
     let src = load(input, opts.kind)?;
     let (format, normals) = match opts.kind {
         Kind::Color => (Format::Bc7Srgb, false),
@@ -496,6 +499,22 @@ mod tests {
         let img = image::Rgb32FImage::from_fn(64, 32, |_, _| image::Rgb([2.0, 1.0, 0.5]));
         image::DynamicImage::ImageRgb32F(img).save(&pano).unwrap();
         check_with_ktx2_crate(&convert(&pano, &opts(Kind::HdrCubemap)).unwrap(), 143, 6);
+    }
+
+    #[test]
+    fn zero_max_size_is_rejected_not_looped() {
+        let input = tmp("zero.png");
+        write_png(&input, 8, 8);
+        let err = convert(
+            &input,
+            &Options {
+                kind: Kind::Color,
+                max_size: Some(0),
+                zstd_level: None,
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("max_size"));
     }
 
     #[test]

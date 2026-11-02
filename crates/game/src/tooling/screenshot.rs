@@ -9,7 +9,7 @@ use crate::graphics::RenderTargets;
 use crate::graphics::pipelines::PipelineStatus;
 use crate::scenes::{LoadScene, SCENES, is_known_scene};
 use bevy::prelude::*;
-use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured, save_to_disk};
+use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
 use game_core::states::AppState;
 
 pub struct ScreenshotModePlugin;
@@ -90,19 +90,32 @@ fn capture_when_ready(
     );
     let failed = status.failed();
     let path = out.clone();
-    commands
-        .spawn(Screenshot::image(output))
-        .observe(save_to_disk(out.clone()))
-        .observe(
-            move |_: On<ScreenshotCaptured>, mut exit: MessageWriter<AppExit>| {
-                info!("screenshot saved to {}", path.display());
-                if failed > 0 {
-                    error!("{failed} render pipelines failed to compile");
-                    exit.write(AppExit::from_code(1));
-                } else {
-                    exit.write(AppExit::Success);
-                }
-            },
-        );
+    commands.spawn(Screenshot::image(output)).observe(
+        move |captured: On<ScreenshotCaptured>, mut exit: MessageWriter<AppExit>| {
+            // The capture event only means GPU readback finished; the exit
+            // code must also reflect whether the file was written.
+            if let Err(e) = save_png(&captured.image, &path) {
+                error!("cannot save screenshot to {}: {e}", path.display());
+                exit.write(AppExit::from_code(4));
+                return;
+            }
+            info!("screenshot saved to {}", path.display());
+            if failed > 0 {
+                error!("{failed} render pipelines failed to compile");
+                exit.write(AppExit::from_code(1));
+            } else {
+                exit.write(AppExit::Success);
+            }
+        },
+    );
     progress.requested = true;
+}
+
+/// Encodes the captured (8-bit sRGB) frame as opaque RGB and writes it.
+fn save_png(image: &Image, path: &std::path::Path) -> Result<(), String> {
+    let dynamic = image
+        .clone()
+        .try_into_dynamic()
+        .map_err(|e| e.to_string())?;
+    dynamic.to_rgb8().save(path).map_err(|e| e.to_string())
 }
