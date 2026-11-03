@@ -1,0 +1,64 @@
+// Metabolism, digestion, growth and the size gate.
+// Live-tunable in the dev build's balance panel (F2). Tuned with the balance
+// bots: `cargo bots` (see docs/ARCHITECTURE.md#balance-bots).
+(
+    metabolism: (
+        // Upkeep drains `k × B^kleiber_exponent` energy units per second, with
+        // k from the stratum (strata.ron) times the strain multiplier.
+        kleiber_exponent: 0.75,
+        // Energy storage scales with body mass; E is shown as % of capacity.
+        energy_capacity_per_biomass: 10.0,
+        start_energy: 75.0,
+        // Digestion converts `digestion_rate × B^kleiber_exponent` mass per second.
+        digestion_rate: 0.11,
+        energy_yield_per_mass: 13.0,
+        // Fraction of digested mass that becomes biomass (the rest is burned).
+        growth_fraction: 0.55,
+        stomach_capacity_per_biomass: 0.5,
+        // Above 150% of stomach capacity the organism is Gorged.
+        gorged_threshold: 1.5,
+        // Nothing more fits above this fill.
+        max_stomach_fill: 2.0,
+        gorged_speed_multiplier: 0.6,
+        gorged_damage_multiplier: 1.5,
+        // Integrity (%) lost per second while energy is 0.
+        starvation_damage_per_sec: 6.0,
+        integrity_regen_per_sec: 1.5,
+        regen_min_energy: 40.0,
+        // Body radius at biomass 1 (radius grows with the cube root of biomass).
+        base_radius: 0.25,
+    ),
+    size_gate: (
+        // target size / player size
+        safe_ratio: 0.8,
+        struggle_max_ratio: 1.2,
+    ),
+    struggle: (
+        start_progress: 0.45,
+        // Progress per Consume press.
+        press_gain: 0.09,
+        // Progress lost per second at ratio 0.8, scaled by (ratio / 0.8)^power.
+        resist_per_sec: 0.45,
+        resist_ratio_power: 2.5,
+        // Integrity (%) lost when the target breaks free.
+        fail_damage: 10.0,
+        timeout_secs: 6.0,
+    ),
+    combat: (
+        // Integrity (%) per bite at equal size, scaled by size ratio up to max_damage_ratio.
+        bite_damage: 14.0,
+        max_damage_ratio: 2.5,
+        bite_cooldown_secs: 1.1,
+        // Push-back after a bite, in player radii per second.
+        knockback: 6.0,
+        // Hunters ignore prey smaller than this fraction of their own size.
+        hunt_min_ratio: 0.3,
+        // Stamina (0..1) a hunter burns per second of chasing; it rests below 0.
+        hunt_stamina_per_sec: 0.22,
+    ),
+    locomotion: (
+        // speed = base_speed × species factor × radius^speed_exponent
+        base_speed: 3.2,
+        speed_exponent: 0.8,
+    ),
+)

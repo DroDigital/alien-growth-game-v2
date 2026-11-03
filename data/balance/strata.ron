@@ -1,0 +1,70 @@
+// Strata (tiers) and their populations. M1: Tier 1 (Impact Site, Crater
+// Seafloor) and Tier 2 (Shallows, Coral Reef).
+//
+// Species fields:
+//   radius:   body radius range in world units
+//   count:    population kept alive in the arena (respawned after deaths)
+//   behavior: Drifter (wanders slowly), Skittish (flees bigger eaters),
+//             Hunter (hunts the player when more than 1.2x its size),
+//             Grazer (wanders, ignores everything)
+//   speed:    locomotion factor (see metabolism.ron: locomotion)
+//   sense:    perception range in own radii
+//   shape / color: grey-box presentation hints
+(
+    tiers: [
+        (
+            tier: 1,
+            stratum_key: "stratum-impact-site",
+            biome_key: "biome-crater-seafloor",
+            biome: CraterSeafloor,
+            upkeep_k: 0.15,
+            start_biomass: 1.0,
+            complete_biomass: 150.0,
+            arena_radius: 30.0,
+            ceiling: 14.0,
+            respawn_secs: 6.0,
+            species: [
+                (id: "diatom", name_key: "species-diatom", radius: (0.07, 0.13), count: 150,
+                 behavior: Drifter, speed: 0.25, sense: 6.0, shape: Blob, color: (0.55, 0.85, 0.6)),
+                (id: "copepod", name_key: "species-copepod", radius: (0.14, 0.26), count: 60,
+                 behavior: Skittish, speed: 0.9, sense: 9.0, shape: Elongated, color: (0.85, 0.75, 0.5)),
+                (id: "brine_shrimp", name_key: "species-brine-shrimp", radius: (0.3, 0.55), count: 30,
+                 behavior: Skittish, speed: 0.95, sense: 10.0, shape: Elongated, color: (0.95, 0.55, 0.45)),
+                (id: "arrow_worm", name_key: "species-arrow-worm", radius: (0.45, 0.7), count: 8,
+                 behavior: Hunter, speed: 0.8, sense: 7.0, shape: Spiky, color: (0.75, 0.8, 0.95)),
+                (id: "comb_jelly", name_key: "species-comb-jelly", radius: (0.7, 1.0), count: 14,
+                 behavior: Drifter, speed: 0.3, sense: 6.0, shape: Jelly, color: (0.6, 0.7, 1.0)),
+                (id: "lanternfish_fry", name_key: "species-lanternfish-fry", radius: (1.1, 1.5), count: 4,
+                 behavior: Hunter, speed: 0.75, sense: 7.0, shape: Fish, color: (0.5, 0.6, 0.75)),
+            ],
+        ),
+        (
+            tier: 2,
+            stratum_key: "stratum-shallows",
+            biome_key: "biome-coral-reef",
+            biome: CoralReef,
+            upkeep_k: 0.42,
+            start_biomass: 150.0,
+            complete_biomass: 4000.0,
+            arena_radius: 120.0,
+            ceiling: 40.0,
+            respawn_secs: 8.0,
+            species: [
+                (id: "reef_shrimp", name_key: "species-reef-shrimp", radius: (0.45, 0.8), count: 70,
+                 behavior: Skittish, speed: 0.85, sense: 8.0, shape: Elongated, color: (0.95, 0.6, 0.5)),
+                (id: "damselfish", name_key: "species-damselfish", radius: (0.9, 1.4), count: 50,
+                 behavior: Skittish, speed: 0.95, sense: 9.0, shape: Fish, color: (0.4, 0.6, 1.0)),
+                (id: "sea_cucumber", name_key: "species-sea-cucumber", radius: (1.0, 1.8), count: 20,
+                 behavior: Grazer, speed: 0.15, sense: 4.0, shape: Elongated, color: (0.55, 0.4, 0.3)),
+                (id: "parrotfish", name_key: "species-parrotfish", radius: (1.6, 2.5), count: 26,
+                 behavior: Skittish, speed: 0.9, sense: 9.0, shape: Fish, color: (0.3, 0.85, 0.7)),
+                (id: "moray", name_key: "species-moray", radius: (2.0, 3.0), count: 6,
+                 behavior: Hunter, speed: 0.8, sense: 8.0, shape: Elongated, color: (0.6, 0.55, 0.3)),
+                (id: "sea_turtle", name_key: "species-sea-turtle", radius: (2.8, 3.6), count: 10,
+                 behavior: Grazer, speed: 0.4, sense: 6.0, shape: Blob, color: (0.45, 0.55, 0.35)),
+                (id: "reef_shark", name_key: "species-reef-shark", radius: (3.6, 4.6), count: 4,
+                 behavior: Hunter, speed: 0.75, sense: 10.0, shape: Fish, color: (0.55, 0.6, 0.65)),
+            ],
+        ),
+    ],
+)

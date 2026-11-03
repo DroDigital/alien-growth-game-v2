@@ -17,3 +17,5 @@ t = "test -p game_core -p game --features game/dev"
 t-tools = "test -p launcher -p tools"
 launcher = "run -p launcher --"
 agtool = "run -p tools --release --"
+# Headless balance bots (release build of game_core + minimal Bevy).
+bots = "run -p game_core --release --bin balance-bots --"

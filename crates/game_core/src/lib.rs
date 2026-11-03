@@ -5,6 +5,7 @@
 //! The `bevy` feature adds ECS integration (states, headless plugins); the
 //! launcher builds without it.
 
+pub mod balance;
 pub mod config;
 pub mod half;
 pub mod launch;
@@ -12,7 +13,15 @@ pub mod locale;
 pub mod manifest;
 pub mod paths;
 pub mod perf;
+pub mod rules;
+pub mod terrain;
 
+#[cfg(feature = "bevy")]
+pub mod bots;
+#[cfg(feature = "bevy")]
+pub mod save;
+#[cfg(feature = "bevy")]
+pub mod sim;
 #[cfg(feature = "bevy")]
 pub mod states;
 

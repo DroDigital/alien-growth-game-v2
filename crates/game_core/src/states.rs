@@ -26,6 +26,8 @@ pub enum RunState {
     TierTransition,
     /// Death screen.
     Dead,
+    /// The final available stratum was completed (end of the current slice).
+    Victory,
 }
 
 /// Registers the flow states on an app (works with `MinimalPlugins` too).
