@@ -68,7 +68,7 @@ death and restart; Ascension mode only.
 | Low preset meets the M1 target (60 fps at 1080p render-scaled, < 3.5 GB) | **needs your Mac**: see "Performance" |
 | Every asset in the manifest | M1 adds no files: all visuals are procedural and SFX are synthesized. `agtool verify-assets` passes |
 | No hardcoded balance values | all tunables live in `data/balance/*.ron`. Presentation constants (camera, UI, SFX) are not balance |
-| 30-minute soak | SOAK_RESULT |
+| 30-minute soak | **passed**: `--benchmark 1800`, bot playing Tier 2 under Xvfb/lavapipe, 10 death→restart world rebuilds, no errors. Entities stayed at 1,370–1,434. Memory went 872 → 928 MiB, rising in steps at restarts and flat in between; watch it in longer Mac soaks |
 
 **Balance bots** (`cargo bots --runs 1000 --seed 1`, 532 s on 4 cores):
 
