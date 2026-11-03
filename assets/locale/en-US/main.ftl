@@ -5,9 +5,10 @@ menu-play = Begin Ascension
 menu-settings = Settings
 menu-quit = Quit
 menu-version = Version { $version }
-menu-stub-notice = Milestone 0 build: gameplay arrives in M1.
+menu-stub-notice = Milestone 1 vertical slice: Devourer, tiers 1-2.
+menu-continue = Continue (Tier { $tier })
 
-# Pause / run (placeholders until M1)
+# Pause
 run-paused = Paused
 run-resume = Resume
 run-abandon = Abandon run

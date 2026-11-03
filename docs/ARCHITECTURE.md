@@ -6,11 +6,12 @@ Read this file and [STATUS.md](STATUS.md) to resume work without rereading the c
 
 ```
 crates/
-  game_core/   pure rules, data types, config, localization, manifest, perf stats (no rendering)
+  game_core/   pure rules, balance data, the fixed-step run simulation, balance bots,
+               saves, config, localization, manifest, perf stats (no rendering)
   game/        the Bevy app: plugins per domain, rendering, UI, tooling modes
   launcher/    eframe/egui launcher (no Bevy)
   tools/       agtool: texconv (KTX2), validate-data, verify-assets, credits
-data/          RON data (presets.ron; balance/*.ron from M1)
+data/          RON data: presets.ron, balance/{metabolism,strains,strata}.ron
 assets/        locale/*.ftl, sources.json, manifest.json, fetched assets (gitignored)
 shaders/       WESL/WGSL, loaded through the `shaders://` asset source
 tools/         build.sh, fetch_assets.py
@@ -55,14 +56,19 @@ overrides), registers the `shaders://` asset source and builds the app:
 
 | Plugin | File | Role |
 |---|---|---|
-| CorePlugin | `boot.rs` | flow states, presets → `ActiveRenderSettings`, `Locale`, asset availability, Boot → Menu/Run/Tooling |
+| CorePlugin | `boot.rs` | flow states, `Balance` (from `data/balance`, built-in fallback), `game_core::sim::SimPlugin`, presets → `ActiveRenderSettings`, `Locale`, asset availability, Boot → Menu/Run/Tooling |
 | InputPlugin | `input.rs` | leafwing `GameAction` map on a `PlayerInput` entity |
-| GraphicsPlugin | `graphics/` | camera rig, render scale, per-preset effects, materials, environment, pipeline-status bridge, Hanabi |
-| ScenesPlugin | `scenes/` | scene registry (`testbed`, `menu`), `LoadScene` message, `OrbitShot` camera |
-| UiPlugin | `ui/` | theme, main menu, pause, run overlay (strings from Fluent) |
-| ToolingPlugin | `tooling/` | `--screenshot`, `--benchmark`, `--warmup` |
-| Creature, Ecosystem, Strata, Mutation, Threat, Ai, Audio, Save, Mod, Online | `*.rs` | domain stubs registered now; filled per milestone |
-| DebugPlugin | `debug.rs` | `debug-ui` feature only: F1 inspector, F3 perf overlay |
+| GraphicsPlugin | `graphics/` | camera rig, render scale, per-preset effects, materials (`GlowMaterial`, `CreatureMaterial`), environment, follow camera, pipeline-status bridge, Hanabi |
+| ScenesPlugin | `scenes/` | static scenes (`testbed`, `menu`, `reef`), `LoadScene`, `OrbitShot`; `worlds.rs` builds crater/reef worlds for scenes and runs alike |
+| UiPlugin | `ui/` | theme, main menu (Continue when a save exists), pause, HUD (`hud.rs`), death/victory screen (`death.rs`) |
+| ToolingPlugin | `tooling/` | `--screenshot` (static and bot-driven run scenes), `--benchmark`, `--warmup` |
+| CreaturePlugin | `creature/` | player body (metaballs → marching cubes off-thread), sim→Transform interpolation, device input → `PlayerIntent`, cursor grab, feel (hit-stop, shake, rumble) |
+| EcosystemPlugin | `ecosystem.rs` | prey/predator visuals per species, size-class colors + shape markers, swallow animation |
+| StrataPlugin | `strata.rs` | starts runs (`PendingRun`), builds each tier's world on `TierEntered`, title card, tier-up cinematic |
+| AudioPlugin | `audio.rs` | synthesized SFX pitched by size, SFX captions |
+| SavePlugin | `save.rs` | run autosave per tier, deleted on death/victory/abandon |
+| Mutation, Threat, Ai, Mod, Online | `*.rs` | domain stubs; filled in later milestones |
+| DebugPlugin | `debug.rs` | `debug-ui` feature only: F1 inspector, F2 live balance panel, F3 perf overlay |
 
 Rules for new code:
 
@@ -76,7 +82,64 @@ Rules for new code:
 ### Flow states (`game_core::states`)
 
 `AppState`: `Boot → MainMenu | InRun | Tooling`. `RunState` (sub-state of `InRun`): `Playing`,
-`Paused`, `TierTransition`, `Dead`. Use `DespawnOnExit(state)` for state-scoped entities.
+`Paused`, `TierTransition`, `Dead`, `Victory`. Use `DespawnOnExit(state)` for state-scoped
+entities. Run screenshots and the run benchmark go `Tooling → InRun`.
+
+## Simulation (`game_core`)
+
+Everything that decides what happens in a run lives here and runs without rendering, so the
+game, the tests and the balance bots execute the same code.
+
+- **Balance** (`balance.rs`): `Balance { core, strains, strata }`, a Bevy resource loaded from
+  `data/balance/*.ron` and validated. The same files are compiled in (`Balance::builtin`) as
+  the fallback. Every tunable number is here: no balance literals in systems.
+- **Rules** (`rules.rs`, pure functions + `Vitals`): radius ∝ biomass^(1/3); speed ∝ r^0.8;
+  size gate (prey/player radius ≤ 0.8 edible, ≤ 1.2 struggle, above dangerous); Kleiber
+  upkeep `k_tier × strain × B^0.75` in absolute energy, shown as % of capacity
+  (`capacity_per_biomass × B`); a digestion queue converts stomach mass into energy and
+  growth; Gorged above 150% fill (slower, takes more damage); starvation drains integrity;
+  `Struggle` (mash Consume against size-scaled resistance); `DeathCause`.
+- **Terrain** (`terrain.rs`): deterministic height field per biome and seed (crater with rim;
+  reef with bommies), shared by the sim (floor collision) and the world mesh.
+- **Run sim** (`sim/`): `SimPlugin` runs in `FixedUpdate` at 64 Hz in chained `SimSet`s
+  (Intent → Ai → Movement → Interactions → Metabolism → Progress), only while
+  `RunState::Playing`. Components: `Pos`/`PrevPos`/`Vel`/`Radius` (presentation interpolates
+  with `overstep_fraction`), `Player` + `PlayerVitals`, `Agent` (species, behavior, mode,
+  stamina). `PlayerIntent` is the only input (written by the device-input system or a bot).
+  Messages out: `Consumed`, `StruggleStarted/Ended`, `PlayerBitten`, `TierCompleted`,
+  `TierEntered`, `PlayerDied`. `RunLog` keeps the timeline and 2 s position samples for the
+  death screen. `start_run(world, seed, strain, checkpoint)` and `advance_tier(world)` are
+  the entry points.
+- **Saves** (`save.rs`): `RunSave { version, game_version, checkpoint }` in RON, atomic write,
+  versioned with `migrate`.
+- **Balance bots** (`bots.rs`, `bin/balance_bots.rs`): `headless_app` = `MinimalPlugins` +
+  states + `SimPlugin` + `BotPlugin`, single-threaded schedules and a manual fixed clock, so a
+  seed always produces the same run. `BotProfile` (mash rate, caution, greed, sloppiness)
+  comes from the seed, so a batch covers different play styles. The policy flees nearby
+  hunters, feeds while steering away from distant ones, picks the best mass-per-distance
+  target, and avoids risky struggles after losing one. `cargo bots --runs N [--seed S]
+  [--json out.json] [--assert-max-cause 0.4] [--data dir]` runs batches in parallel (rayon)
+  and prints death causes, tier reach and completion time. CI fails if any death cause
+  exceeds 40% of deaths.
+
+## Presentation (game crate)
+
+- **Creature body** (`creature/mesher.rs`): metaballs (`r²/d²` field, iso 1) polygonized
+  with marching cubes (Bourke's tables, `mc_tables.rs`) on the `AsyncComputeTaskPool`, with
+  vertices shared per grid edge (watertight, smooth normals from the field gradient). The grid
+  box pads every centre by √(Σr²), which provably contains the surface. A new mesh is built
+  when the growth stage (`floor(2·log2 B)`) changes; the resolution follows the preset.
+- **CreatureMaterial**: the glow material plus a vertex wobble in `bioluminescence.wesl`.
+  It is alpha-blended, so it skips the depth prepass; that avoids a depth mismatch with the
+  displaced vertices.
+- **Follow camera** (`graphics/follow.rs`): orbit around the player (mouse/right stick), with
+  distance and FOV scaling with radius, floor clearance, trauma-based shake, and `zoom_out`
+  driven by the tier-up cinematic.
+- **Feel** (`creature/feel.rs`): hit-stop pauses `Time<Virtual>` for a few real-time frames;
+  shake and rumble scale with the event. All respect the accessibility settings.
+- **Ecosystem visuals**: shared meshes per shape, materials per species × size class. Classes
+  use a colorblind-safe palette plus shape markers (torus = risky, cone = dangerous), never
+  color alone.
 
 ### Rendering
 
@@ -108,10 +171,18 @@ Rules for new code:
 
 - `--screenshot <scene> <preset> <out.png> [--resolution WxH] [--settle-frames N]`: headless
   (no window, no winit, `ScheduleRunnerPlugin`), offscreen output, exits 0 on success, 1 if
-  pipelines failed, 2 on bad args, 3 on watchdog timeout (600 s).
-- `--benchmark [secs] [--benchmark-out file]`: windowed, vsync off, testbed flythrough after
-  warm-up; writes `game_core::perf::BenchmarkReport` JSON (avg fps, 1% low, max frame, spikes
-  over 50 ms, memory) and prints a `BENCHMARK …` line.
+  pipelines failed, 2 on bad args, 3 on watchdog timeout (600 s), 5 if a run scene never
+  reached its moment. Static scenes: `testbed`, `menu`, `reef`. Run scenes: `run-tier1`,
+  `run-tier2`, `death`. These start a real run with a fixed seed, driven by the balance bot
+  (`AutoPilot` disables device input). The clock is manual at 0.25 s of sim per frame, and
+  the world freezes (virtual speed 0) once the moment arrives, before settling and capturing.
+- `--benchmark [secs] [--benchmark-scene run|testbed] [--benchmark-out file]`: windowed,
+  vsync off. The default `run` scene has the bot play Tier 2, the heaviest world, in real
+  time, restarting on death. `testbed` is the M0 flythrough. Writes
+  `game_core::perf::BenchmarkReport` JSON (avg fps, 1% low, max frame, spikes over 50 ms,
+  memory), prints a `BENCHMARK …` line, and logs memory and entity count every minute (soak
+  runs: up to 3600 s).
+- Dev flags: `--skip-menu` starts a run directly; `--seed N` fixes the run seed.
 - `--warmup`: loads each warm-up scene under each preset until pipelines settle. Persisting a
   wgpu pipeline cache is M2.
 
@@ -157,7 +228,10 @@ Rules for new code:
 ## CI (`.github/workflows/ci.yml`)
 
 - **lint**: fmt, clippy `-D warnings`, data/manifest/credits validation.
-- **test**: workspace tests, Low and Medium screenshots on lavapipe (software Vulkan), and the
-  launcher-launches-game smoke test. Screenshots are uploaded as artifacts.
+- **test**: workspace tests, Low and Medium testbed screenshots, plus bot-driven `run-tier1`
+  and `death` screenshots on lavapipe (software Vulkan), and the launcher-launches-game smoke
+  test. Screenshots are uploaded as artifacts.
+- **balance-bots**: `cargo bots --runs 400 --assert-max-cause 0.4`, with the JSON report
+  uploaded.
 - **build-macos** (macos-14, arm64) and **build-windows** (windows-2022): tests for core and
   tools, `tools/build.sh <os> release`, artifacts uploaded.

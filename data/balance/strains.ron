@@ -1,0 +1,19 @@
+// Playable starting organisms. M1 ships the Devourer only.
+(
+    strains: {
+        "devourer": (
+            name_key: "strain-devourer",
+            upkeep_multiplier: 1.0,
+            speed_factor: 1.15,
+            // How quickly velocity reaches the target speed (1/s).
+            acceleration: 6.0,
+            dash_speed_multiplier: 2.2,
+            dash_secs: 0.35,
+            dash_cooldown_secs: 1.6,
+            // Energy (%) spent per dash.
+            dash_energy_cost: 3.0,
+            // Contact reach for eating, in player radii.
+            bite_reach: 1.05,
+        ),
+    },
+)

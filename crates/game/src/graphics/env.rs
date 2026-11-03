@@ -37,6 +37,16 @@ impl EnvPalette {
         sun_sharpness: 24.0,
     };
 
+    /// Tier 2 (Shallows / Coral Reef): bright turquoise surface, blue depths.
+    pub const REEF: EnvPalette = EnvPalette {
+        zenith: Vec3::new(0.35, 0.75, 0.85),
+        horizon: Vec3::new(0.03, 0.18, 0.28),
+        nadir: Vec3::new(0.01, 0.04, 0.08),
+        sun_dir: Vec3::new(-0.2, 1.0, 0.3),
+        sun_color: Vec3::new(1.2, 1.3, 1.1),
+        sun_sharpness: 16.0,
+    };
+
     pub fn sample(&self, dir: Vec3) -> Vec3 {
         let d = dir.normalize();
         let base = if d.y >= 0.0 {
@@ -55,7 +65,10 @@ impl EnvPalette {
 /// Handle to the active environment cubemap.
 #[derive(Resource, Debug, Clone)]
 pub struct EnvironmentCubemap {
+    /// Deep, dim seafloor (Tier 1, menu, testbed).
     pub image: Handle<Image>,
+    /// Sunlit shallows (Tier 2).
+    pub reef: Handle<Image>,
 }
 
 pub struct EnvironmentPlugin;
@@ -69,6 +82,7 @@ impl Plugin for EnvironmentPlugin {
 fn setup_environment(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(EnvironmentCubemap {
         image: images.add(procedural_cubemap(&EnvPalette::SEAFLOOR, 128)),
+        reef: images.add(procedural_cubemap(&EnvPalette::REEF, 128)),
     });
 }
 

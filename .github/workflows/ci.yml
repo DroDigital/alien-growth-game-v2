@@ -70,6 +70,12 @@ jobs:
           mkdir -p ci-shots
           ./target/debug/game --screenshot testbed low ci-shots/testbed_low.png
           ./target/debug/game --screenshot testbed medium ci-shots/testbed_medium.png
+      - name: Run screenshots (bot-driven tier 1 and death screen)
+        env:
+          BEVY_ASSET_ROOT: ${{ github.workspace }}
+        run: |
+          ./target/debug/game --screenshot run-tier1 low ci-shots/run_tier1_low.png --resolution 1280x720
+          ./target/debug/game --screenshot death low ci-shots/death_low.png --resolution 1280x720
       - name: Shader warm-up across all presets
         env:
           BEVY_ASSET_ROOT: ${{ github.workspace }}
@@ -84,6 +90,27 @@ jobs:
           name: screenshots-linux
           path: ci-shots/
           if-no-files-found: warn
+
+  balance-bots:
+    name: balance bots (no death cause above 40%)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libudev-dev
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: bots
+      - run: cargo bots --runs 400 --seed 1 --json bots.json --assert-max-cause 0.4
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: balance-bots
+          path: bots.json
 
   build-macos:
     name: build (macOS, Apple Silicon)

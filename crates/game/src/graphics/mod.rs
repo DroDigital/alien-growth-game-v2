@@ -11,6 +11,7 @@
 //!   offscreen output image in headless modes (screenshot, warm-up).
 
 pub mod env;
+pub mod follow;
 pub mod materials;
 pub mod pipelines;
 
@@ -94,6 +95,7 @@ impl Plugin for GraphicsPlugin {
             env::EnvironmentPlugin,
             pipelines::PipelineStatusPlugin,
             bevy_hanabi::HanabiPlugin,
+            follow::FollowCameraPlugin,
         ))
         .add_systems(PreStartup, setup_camera_rig)
         .add_systems(

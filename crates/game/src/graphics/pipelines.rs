@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{CachedPipelineState, PipelineCache};
 use bevy::render::{Render, RenderApp, RenderSystems};
+use bevy::shader::ShaderCacheError;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -56,6 +57,12 @@ fn count_pipelines(cache: Res<PipelineCache>, status: Res<PipelineStatus>) {
         match p.state {
             CachedPipelineState::Ok(_) => ready += 1,
             CachedPipelineState::Queued | CachedPipelineState::Creating(_) => pending += 1,
+            // Waiting on a shader asset or import: Bevy retries these once it
+            // loads, so they are still pending, not failed.
+            CachedPipelineState::Err(
+                ShaderCacheError::ShaderNotLoaded(_)
+                | ShaderCacheError::ShaderImportNotYetAvailable,
+            ) => pending += 1,
             CachedPipelineState::Err(_) => failed += 1,
         }
     }

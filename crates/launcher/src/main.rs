@@ -418,7 +418,7 @@ mod tests {
         let mut s = Settings::default();
         s.quality.preset = QualityPreset::Medium;
         s.launcher.backend = GraphicsBackend::Vulkan;
-        s.launcher.custom_args = "--scene testbed".into();
+        s.launcher.custom_args = "--skip-menu --seed 7".into();
         assert_eq!(
             game_args(&s, true),
             vec![
@@ -427,8 +427,9 @@ mod tests {
                 "--backend",
                 "vulkan",
                 "--safe-mode",
-                "--scene",
-                "testbed"
+                "--skip-menu",
+                "--seed",
+                "7"
             ]
         );
     }

@@ -13,10 +13,16 @@ pub struct Cli {
     #[arg(long, num_args = 3, value_names = ["SCENE", "PRESET", "OUT"])]
     pub screenshot: Option<Vec<String>>,
 
-    /// Run the scripted benchmark flythrough and write results JSON.
+    /// Run the benchmark and write results JSON (default scene: a bot-driven
+    /// run in the Tier 2 reef; see `--benchmark-scene`).
     /// Optional value: duration in seconds (default 20).
     #[arg(long, num_args = 0..=1, default_missing_value = "20", value_name = "SECS")]
     pub benchmark: Option<f64>,
+
+    /// Benchmark scene: `run` (bot plays Tier 2, the heaviest world) or
+    /// `testbed` (the M0 camera flythrough).
+    #[arg(long, default_value = "run", value_parser = ["run", "testbed"])]
+    pub benchmark_scene: String,
 
     /// Where `--benchmark` writes its JSON (default: user cache dir).
     #[arg(long, value_name = "FILE")]
@@ -42,9 +48,14 @@ pub struct Cli {
     #[arg(long)]
     pub backend: Option<String>,
 
-    /// Skip the main menu and load a scene directly (dev).
+    /// Skip the main menu and start a run directly (dev).
     #[arg(long)]
-    pub scene: Option<String>,
+    pub skip_menu: bool,
+
+    /// Seed for the next run (default: random). Also used by screenshot
+    /// scenes that simulate a run.
+    #[arg(long)]
+    pub seed: Option<u64>,
 
     /// Output resolution for offscreen modes, e.g. 1920x1080.
     #[arg(long, value_parser = parse_resolution)]
@@ -103,7 +114,7 @@ impl Cli {
             });
         }
         if let Some(secs) = self.benchmark {
-            if !(1.0..=600.0).contains(&secs) {
+            if !(1.0..=3600.0).contains(&secs) {
                 return Err(format!("benchmark duration out of range: {secs}"));
             }
             return Ok(Mode::Benchmark {

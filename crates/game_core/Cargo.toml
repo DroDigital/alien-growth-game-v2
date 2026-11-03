@@ -23,6 +23,15 @@ unic-langid.workspace = true
 directories.workspace = true
 thiserror.workspace = true
 sha2.workspace = true
+noise.workspace = true
+rand = { workspace = true, features = ["std"] }
+rand_chacha.workspace = true
+rayon.workspace = true
+
+[[bin]]
+name = "balance-bots"
+path = "src/bin/balance_bots.rs"
+required-features = ["bevy"]
 
 [lints]
 workspace = true
