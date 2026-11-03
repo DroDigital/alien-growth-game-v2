@@ -22,6 +22,9 @@ pub struct BioluminescenceParams {
     pub pulse: Vec4,
     /// x: vein scale (1/m, 0 = off), y: vein sharpness, z: body amount, w: rim amount.
     pub pattern: Vec4,
+    /// Vertex wobble (creature skin only): x amplitude (fraction of radius),
+    /// y spatial frequency, z speed (rad/s), w breathing pulse amplitude.
+    pub wobble: Vec4,
 }
 
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
@@ -38,6 +41,7 @@ impl Bioluminescence {
                 glow: Vec4::new(color.red, color.green, color.blue, intensity),
                 pulse: Vec4::new(0.5, 0.45, 2.5, 0.0),
                 pattern: Vec4::new(0.0, 0.5, 0.3, 1.0),
+                wobble: Vec4::ZERO,
             },
         }
     }
@@ -73,10 +77,48 @@ impl MaterialExtension for Bioluminescence {
     }
 }
 
+/// The player organism's skin: the bioluminescent fragment stage plus a
+/// vertex stage that makes the metaball body pulse and wobble. Used with an
+/// alpha-blended base material: blended meshes skip the depth prepass, so the
+/// displaced vertices never disagree with prepass depth.
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+pub struct CreatureSkin {
+    #[uniform(100)]
+    pub params: BioluminescenceParams,
+}
+
+impl CreatureSkin {
+    pub fn from_glow(
+        glow: Bioluminescence,
+        amplitude: f32,
+        frequency: f32,
+        speed: f32,
+        pulse: f32,
+    ) -> Self {
+        let mut params = glow.params;
+        params.wobble = Vec4::new(amplitude, frequency, speed, pulse);
+        Self { params }
+    }
+}
+
+impl MaterialExtension for CreatureSkin {
+    fn vertex_shader() -> ShaderRef {
+        BIOLUMINESCENCE_SHADER.into()
+    }
+    fn fragment_shader() -> ShaderRef {
+        BIOLUMINESCENCE_SHADER.into()
+    }
+}
+
+pub type CreatureMaterial = ExtendedMaterial<StandardMaterial, CreatureSkin>;
+
 pub struct MaterialsPlugin;
 
 impl Plugin for MaterialsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(MaterialPlugin::<GlowMaterial>::default());
+        app.add_plugins((
+            MaterialPlugin::<GlowMaterial>::default(),
+            MaterialPlugin::<CreatureMaterial>::default(),
+        ));
     }
 }

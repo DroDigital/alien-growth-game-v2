@@ -1,18 +1,26 @@
-//! `--benchmark [secs]`: scripted flythrough of the testbed in a real window
-//! (vsync off), measuring frame times after shader warm-up. Writes a
+//! `--benchmark [secs]`: measures frame times in a real window (vsync off)
+//! after shader warm-up. The default scene is a run in the Tier 2 reef (the
+//! heaviest world) played by the balance bot, restarted if the bot dies;
+//! `--benchmark-scene testbed` flies through the M0 testbed instead. Writes a
 //! `BenchmarkReport` JSON for the launcher and prints a summary.
 
 use super::PipelineSettle;
 use crate::boot::{LaunchContext, PlayerSettings};
 use crate::cli::Mode;
+use crate::creature::AutoPilot;
 use crate::graphics::RenderTargets;
 use crate::graphics::pipelines::PipelineStatus;
 use crate::scenes::{LoadScene, OrbitShot};
+use crate::strata::PendingRun;
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
+use game_core::balance::Balance;
+use game_core::bots::BotPlugin;
 use game_core::config::QualityPreset;
 use game_core::perf::{BenchmarkReport, FrameStats};
+use game_core::sim::{DEFAULT_STRAIN, start_run};
 use game_core::states::AppState;
+use game_core::states::RunState;
 
 pub struct BenchmarkModePlugin;
 
@@ -22,8 +30,17 @@ impl Plugin for BenchmarkModePlugin {
             .add_systems(OnEnter(AppState::Tooling), start)
             .add_systems(
                 Update,
-                (speed_up_flythrough, record).run_if(in_state(AppState::Tooling)),
+                (speed_up_flythrough, record)
+                    .run_if(in_state(AppState::Tooling).or_else(in_state(AppState::InRun))),
             );
+        if app.world().resource::<LaunchContext>().cli.benchmark_scene == RUN_SCENE {
+            app.add_plugins(BotPlugin {
+                auto_advance: false,
+            })
+            .insert_resource(AutoPilot)
+            .add_systems(OnEnter(RunState::Dead), restart_run)
+            .add_systems(OnEnter(RunState::Victory), restart_run);
+        }
     }
 }
 
@@ -36,11 +53,41 @@ struct BenchState {
     done: bool,
 }
 
-fn start(mut load: MessageWriter<LoadScene>) {
-    load.write(LoadScene {
-        name: "testbed".into(),
-        animate_camera: true,
+const RUN_SCENE: &str = "run";
+const BENCH_SEED: u64 = 8;
+
+fn start(
+    ctx: Res<LaunchContext>,
+    balance: Res<Balance>,
+    mut pending: ResMut<PendingRun>,
+    mut next: ResMut<NextState<AppState>>,
+    mut load: MessageWriter<LoadScene>,
+) {
+    if ctx.cli.benchmark_scene == RUN_SCENE {
+        pending.seed = Some(BENCH_SEED);
+        pending.resume = super::tier2_arrival(&balance, BENCH_SEED);
+        next.set(AppState::InRun);
+    } else {
+        load.write(LoadScene {
+            name: "testbed".into(),
+            animate_camera: true,
+        });
+    }
+}
+
+/// Keeps the load representative: a dead bot is put straight back into the
+/// reef instead of measuring the end screen.
+fn restart_run(mut commands: Commands, mut restarts: Local<u64>) {
+    *restarts += 1;
+    let seed = BENCH_SEED + *restarts;
+    commands.queue(move |world: &mut World| {
+        let resume = super::tier2_arrival(world.resource::<Balance>(), seed);
+        start_run(world, seed, DEFAULT_STRAIN, resume);
+        world
+            .resource_mut::<NextState<RunState>>()
+            .set(RunState::Playing);
     });
+    info!("benchmark: bot run ended, restarting (seed {seed})");
 }
 
 /// The flythrough covers the whole crater: faster orbit with height changes.
@@ -62,6 +109,7 @@ fn record(
     adapter: Option<Res<RenderAdapterInfo>>,
     mut state: ResMut<BenchState>,
     mut exit: MessageWriter<AppExit>,
+    entities: Query<()>,
 ) {
     let Mode::Benchmark { secs, out } = &ctx.mode else {
         return;
@@ -93,8 +141,19 @@ fn record(
         return;
     }
     let dt = time.delta_secs_f64();
+    let before = state.elapsed;
     state.elapsed += dt;
     state.frame_times_ms.push(dt * 1000.0);
+    // Soak log: long runs show memory or entity growth minute by minute.
+    if (before / 60.0).floor() != (state.elapsed / 60.0).floor() {
+        info!(
+            "benchmark: {:.0}s, {} frames, {} entities, memory {}",
+            state.elapsed,
+            state.frame_times_ms.len(),
+            entities.iter().count(),
+            super::process_memory_mib().map_or("n/a".into(), |m| format!("{m:.0} MiB"))
+        );
+    }
     if state.elapsed < *secs {
         return;
     }
@@ -108,7 +167,7 @@ fn record(
     let preset = settings.quality.preset;
     let report = BenchmarkReport {
         game_version: game_core::GAME_VERSION.into(),
-        scene: "testbed".into(),
+        scene: ctx.cli.benchmark_scene.clone(),
         preset: preset.as_str().into(),
         output_resolution: (targets.output_size.x, targets.output_size.y),
         render_resolution: (targets.scene_size.x, targets.scene_size.y),

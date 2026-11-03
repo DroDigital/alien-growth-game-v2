@@ -79,12 +79,24 @@ impl Plugin for CorePlugin {
             Localizer::from_sources(game_core::locale::DEFAULT_LANGUAGE, &[], &[])
         });
 
-        app.insert_resource(Presets(presets))
+        app.insert_resource(load_balance())
+            .add_plugins(game_core::sim::SimPlugin)
+            .insert_resource(Presets(presets))
             .insert_resource(ActiveRenderSettings(active))
             .insert_resource(Locale(localizer))
             .insert_resource(scan_assets())
             .add_systems(Startup, finish_boot);
     }
+}
+
+/// Balance tables from `data/balance`; falls back to the copy compiled into
+/// the binary if the shipped files are broken (logged as an error).
+fn load_balance() -> game_core::balance::Balance {
+    let dir = paths::data_dir().join("balance");
+    game_core::balance::Balance::load(&dir).unwrap_or_else(|e| {
+        error!("{e}; using built-in balance");
+        game_core::balance::Balance::builtin()
+    })
 }
 
 fn load_presets() -> PresetTable {
@@ -136,9 +148,9 @@ fn scan_assets() -> AssetAvailability {
 }
 
 fn finish_boot(ctx: Res<LaunchContext>, mut next: ResMut<NextState<AppState>>) {
-    let target = match (&ctx.mode, &ctx.cli.scene) {
-        (Mode::Play, Some(_)) => AppState::InRun,
-        (Mode::Play, None) => AppState::MainMenu,
+    let target = match &ctx.mode {
+        Mode::Play if ctx.cli.skip_menu => AppState::InRun,
+        Mode::Play => AppState::MainMenu,
         _ => AppState::Tooling,
     };
     next.set(target);

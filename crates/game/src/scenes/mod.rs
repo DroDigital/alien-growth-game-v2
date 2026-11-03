@@ -1,16 +1,23 @@
-//! Scene registry. A scene is a named, seeded setup function that spawns
-//! entities tagged with [`SceneMember`]. Used by the menu background, the
-//! screenshot/benchmark tooling and (until M1) the run placeholder.
+//! Scene registry. A scene is a named, seeded setup that spawns entities
+//! tagged with [`SceneMember`]. Static scenes (menu background, testbed, reef
+//! preview) load through [`LoadScene`]; during runs the strata plugin builds
+//! each tier's world with the same [`worlds::WorldSpawner`].
 
-pub mod testbed;
+pub mod worlds;
 
-use crate::boot::LaunchContext;
 use crate::graphics::WorldCamera;
 use bevy::prelude::*;
+use game_core::balance::Biome;
 use game_core::states::AppState;
+use game_core::terrain::Terrain;
+use worlds::{Shot, WorldSpec};
 
-/// Names accepted by `--screenshot <scene>` and `--scene`.
-pub const SCENES: &[&str] = &["testbed", "menu"];
+/// Static scenes accepted by `--screenshot <scene>`. The tooling also accepts
+/// run scenes (`run-tier1`, `run-tier2`, `death`), see `tooling/screenshot.rs`.
+pub const SCENES: &[&str] = &["testbed", "menu", "reef"];
+
+/// Fixed seed: static scenes must render identically every time.
+const STATIC_SEED: u32 = 0x5EAF_100D;
 
 /// Every entity spawned by a scene; despawned when the scene changes.
 #[derive(Component)]
@@ -49,7 +56,7 @@ impl Plugin for ScenesPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<LoadScene>()
             .init_resource::<ActiveScene>()
-            .add_plugins(testbed::TestbedPlugin)
+            .add_plugins(worlds::WorldsPlugin)
             .add_systems(
                 OnEnter(AppState::MainMenu),
                 |mut w: MessageWriter<LoadScene>| {
@@ -59,7 +66,6 @@ impl Plugin for ScenesPlugin {
                     });
                 },
             )
-            .add_systems(OnEnter(AppState::InRun), load_run_scene)
             .add_systems(Update, (handle_load_scene, drive_orbit_camera).chain());
     }
 }
@@ -68,21 +74,12 @@ pub fn is_known_scene(name: &str) -> bool {
     SCENES.contains(&name)
 }
 
-fn load_run_scene(ctx: Res<LaunchContext>, mut w: MessageWriter<LoadScene>) {
-    // M0: the run is a placeholder that shows the testbed seafloor.
-    let name = ctx.cli.scene.clone().unwrap_or_else(|| "testbed".into());
-    w.write(LoadScene {
-        name,
-        animate_camera: true,
-    });
-}
-
 fn handle_load_scene(
     mut commands: Commands,
     mut requests: MessageReader<LoadScene>,
     mut active: ResMut<ActiveScene>,
     members: Query<Entity, With<SceneMember>>,
-    mut spawn: testbed::TestbedSpawner,
+    mut spawn: worlds::WorldSpawner,
     camera: Query<Entity, With<WorldCamera>>,
 ) {
     let Some(req) = requests.read().last().cloned() else {
@@ -98,14 +95,23 @@ fn handle_load_scene(
         error!("no world camera; cannot load scene {}", req.name);
         return;
     };
-    match req.name.as_str() {
-        "testbed" => spawn.spawn(cam, testbed::Shot::Hero, req.animate_camera),
-        "menu" => spawn.spawn(cam, testbed::Shot::Menu, req.animate_camera),
+    let (biome, radius, shot) = match req.name.as_str() {
+        "testbed" => (Biome::CraterSeafloor, 30.0, Shot::Hero),
+        "menu" => (Biome::CraterSeafloor, 30.0, Shot::Menu),
+        "reef" => (Biome::CoralReef, 120.0, Shot::Hero),
         other => {
             error!("unknown scene '{other}' (known: {SCENES:?})");
             return;
         }
-    }
+    };
+    spawn.build(&WorldSpec {
+        biome,
+        terrain: Terrain::new(biome, STATIC_SEED),
+        radius,
+        camera: cam,
+        shot: Some((shot, req.animate_camera)),
+        stand_in_organism: biome == Biome::CraterSeafloor,
+    });
     info!("scene loaded: {}", req.name);
     active.name = Some(req.name);
 }

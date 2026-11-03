@@ -3,13 +3,16 @@
 //   body:  a slow breathing pulse over the whole surface
 //   rim:   fresnel glow at grazing angles (membranes)
 //   veins: ridged 3D noise in object space (glowing seams/capillaries)
-// Used by crates/game/src/graphics/materials.rs (GlowMaterial).
+// Used by crates/game/src/graphics/materials.rs (GlowMaterial, and CreatureSkin
+// which adds the vertex wobble stage below).
 
 import bevy_pbr::render::{
     pbr_fragment::pbr_input_from_standard_material,
     pbr_functions::{alpha_discard, apply_pbr_lighting, main_pass_post_lighting_processing},
-    forward_io::{VertexOutput, FragmentOutput},
+    forward_io::{Vertex, VertexOutput, FragmentOutput, decompress_vertex},
+    mesh_functions,
     mesh_view_bindings::{globals, view},
+    view_transformations::position_world_to_clip,
 };
 
 struct BioluminescenceParams {
@@ -19,12 +22,54 @@ struct BioluminescenceParams {
     pulse: vec4<f32>,
     // x: vein scale (1/m), y: vein sharpness (0..1), z: body amount, w: rim amount
     pattern: vec4<f32>,
+    // x: wobble amplitude (local units), y: spatial frequency, z: speed, w: pulse amplitude
+    wobble: vec4<f32>,
 }
 
 @group(constants::MATERIAL_BIND_GROUP) @binding(100)
 var<uniform> bio: BioluminescenceParams;
 
 const TAU: f32 = 6.28318530718;
+
+// Vertex stage for the creature skin (CreatureSkin): the standard mesh vertex
+// path plus displacement along the normal. Static meshes (GlowMaterial) use
+// Bevy's default vertex shader and never run this.
+@vertex
+fn vertex(vertex_in: Vertex) -> VertexOutput {
+    var out: VertexOutput;
+    var vertex = decompress_vertex(vertex_in, vertex_in.instance_index);
+    let world_from_local = mesh_functions::get_world_from_local(vertex_in.instance_index);
+
+    let p = vertex.position;
+    let t = globals.time;
+    let freq = bio.wobble.y;
+    let wobble = sin(dot(p, vec3<f32>(1.7, 2.3, 1.3)) * freq + t * bio.wobble.z)
+        + 0.5 * sin(dot(p, vec3<f32>(-2.1, 0.7, 1.9)) * freq * 1.7 - t * bio.wobble.z * 1.3);
+    let pulse = sin(t * bio.pulse.x * TAU) * bio.wobble.w;
+@if(VERTEX_NORMALS)
+    vertex.position = p + vertex.normal * (wobble * bio.wobble.x + pulse);
+
+@if(VERTEX_NORMALS)
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal, vertex_in.instance_index);
+@if(VERTEX_POSITIONS)
+    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
+@if(VERTEX_POSITIONS)
+    out.position = position_world_to_clip(out.world_position.xyz);
+@if(VERTEX_UVS_A)
+    out.uv = vertex.uv;
+@if(VERTEX_UVS_B)
+    out.uv_b = vertex.uv_b;
+@if(VERTEX_TANGENTS)
+    out.world_tangent = mesh_functions::mesh_tangent_local_to_world(world_from_local, vertex.tangent, vertex_in.instance_index);
+@if(VERTEX_COLORS)
+    out.color = vertex.color;
+@if(VERTEX_OUTPUT_INSTANCE_INDEX)
+    out.instance_index = vertex_in.instance_index;
+@if(VISIBILITY_RANGE_DITHER)
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_in.instance_index, world_from_local[3]);
+    return out;
+}
 
 fn hash3(p: vec3<f32>) -> f32 {
     let q = fract(p * 0.3183099 + vec3<f32>(0.1, 0.2, 0.3)) * 17.0;

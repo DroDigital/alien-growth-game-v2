@@ -176,7 +176,10 @@ fn bot_policy(
     }
 
     intent.dash = false;
-    if flee.length_squared() > 0.0 {
+    // Like a player: bolt when a threat is close or pressing; otherwise keep
+    // feeding while steering away from it.
+    let urgent = flee.length() > 0.6 || nearest_threat < 2.0 + 4.0 * pr.0;
+    if flee.length_squared() > 0.0 && (urgent || best.is_none()) {
         intent.move_dir = flee.normalize_or_zero();
         if nearest_threat < 3.0 * pr.0 && vitals.0.energy > 15.0 {
             intent.dash = true;
@@ -184,7 +187,8 @@ fn bot_policy(
         return;
     }
     if let Some((_, target)) = best {
-        intent.move_dir = (target - ppos.0).normalize_or_zero();
+        let food = (target - ppos.0).normalize_or_zero();
+        intent.move_dir = (food + flee * 1.5).normalize_or_zero();
         return;
     }
     state.wander_timer -= dt;

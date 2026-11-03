@@ -9,7 +9,6 @@ use crate::boot::LaunchContext;
 use crate::cli::Mode;
 use crate::graphics::pipelines::PipelineStatus;
 use bevy::prelude::*;
-use game_core::states::AppState;
 
 pub struct ToolingPlugin;
 
@@ -35,9 +34,29 @@ impl Plugin for ToolingPlugin {
         if !matches!(mode, Mode::Play) {
             let limit = watchdog_limit_secs(&mode);
             app.insert_resource(WatchdogLimit(limit))
-                .add_systems(Update, watchdog.run_if(in_state(AppState::Tooling)));
+                .add_systems(Update, watchdog);
         }
     }
+}
+
+/// A checkpoint that arrives in Tier 2 as if Tier 1 had just been completed
+/// (run screenshots and the run benchmark start here).
+pub fn tier2_arrival(
+    balance: &game_core::balance::Balance,
+    seed: u64,
+) -> Option<game_core::sim::RunCheckpoint> {
+    let tier = balance.tier(1)?;
+    let mut vitals = game_core::rules::Vitals::new(tier.start_biomass, &balance.core.metabolism);
+    vitals.energy = 80.0;
+    Some(game_core::sim::RunCheckpoint {
+        seed,
+        strain: game_core::sim::DEFAULT_STRAIN.into(),
+        tier_index: 1,
+        vitals,
+        elapsed: 300.0,
+        peak_biomass: tier.start_biomass,
+        meals: 60,
+    })
 }
 
 /// Resident memory of this process in MiB (None if the OS query fails).

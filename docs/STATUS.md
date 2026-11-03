@@ -1,96 +1,168 @@
 # Status
 
-_Last updated: M0 Foundation (2026-11-02)._
+_Last updated: M1 Vertical slice (2026-11-03)._
 
-## Milestone: M0 Foundation (done, pending your review)
+## Milestone: M1 Vertical slice (done, pending your playtest)
+
+Scope: Devourer strain; Tiers 1–2 in grey-box; metabolism, growth and consumption feel;
+death and restart; Ascension mode only.
 
 ### Works
 
-- **Workspace**: `game_core`, `game`, `launcher`, `tools`. Every dependency is pinned exactly.
-  Bevy is 0.20.1 and Rust is 1.99.1.
-- **M1 build settings**: `jobs = 4`; dev opt-level 1 for our crates and 3 for dependencies
-  (no dependency debug info); `dynamic_linking` only through the `dev` feature. The cargo
-  aliases `cargo dev`, `cargo t` and `cargo t-tools` share one Bevy build.
-- **Game skeleton**: flow states (`AppState` and the `RunState` sub-state), one plugin per
-  domain (most are stubs), a leafwing input map, a Fluent-localized main menu and pause menu,
-  quality presets from `data/presets.ron` applied live to the camera, the render-scale camera
-  rig, and a crash hook plus running marker.
-- **Testbed scene** (Tier 1 mood in grey-box): crater seafloor, instanced rocks, a meteor with
-  glowing seams, the organism with glowing veins, bioluminescent motes, GPU marine snow
-  (Hanabi), distance fog, an underwater gradient env map with matching skybox, and volumetric
-  fog on Medium and up.
-- **Screenshot mode**: `game --screenshot <scene> <preset> <out.png>` renders headless and
-  offscreen through the same render-scale path as the window. It waits until every pipeline
-  is compiled. Verified on lavapipe (software Vulkan): Low captures with 77 pipelines and
-  Medium with 83, 0 failed.
-- **Benchmark mode**: `game --benchmark [secs]` runs a testbed flythrough in a 1080p window
-  with vsync off. It writes a JSON report with average fps, 1% low, max frame time, spikes
-  over 50 ms and process memory, and recommends a preset. Verified end to end under Xvfb and
-  lavapipe: 646 MiB resident, fps meaningless on a CPU rasterizer.
-- **Render resolution** follows the preset rather than the display: the output is capped to
-  the preset's reference height (1080 for Low and Medium), then scaled. Low on a 2560×1600
-  Retina panel therefore renders 1296×810 and upscales.
-- **Warm-up mode**: `game --warmup` reloads the testbed under each preset (Low → Ultra) until
-  pipelines settle: 85 pipelines, 0 failed. This also exercises live preset switching and
-  scene reloads. The persistent pipeline cache comes in M2.
-- **Asset pipeline**: `assets/sources.json` → `tools/fetch_assets.py` (Poly Haven, ambientCG,
-  Freesound with a CC0 filter, direct URLs; zip extraction, caching, `--locked`, `--ultra`)
-  → `agtool texconv` (KTX2 with BC7/BC5/BC4/BC6H, mips and zstd; equirect HDR → cubemap)
-  → `assets/manifest.json` + `CREDITS.md`. The game falls back to procedural content per
-  asset.
-- **Launcher skeleton**: Play button, preset, backend, custom args, after-launch behavior,
-  "launch directly", Safe Mode after an abnormal exit, a basic system scan (OS, CPU, RAM,
-  disk), and localized strings. `launcher --headless-launch ARGS` starts the game and returns
-  its exit code.
-- **Build and CI**: `tools/build.sh [mac|windows|linux] [debug|release]`, plus GitHub Actions:
-  lint (fmt, clippy, data, credits), tests with screenshots on lavapipe, a macOS arm64 build
-  and a Windows x64 build, all uploading artifacts.
+- **Run simulation in `game_core`** (64 Hz `FixedUpdate`, no rendering):
+  - Metabolism: Kleiber upkeep, digestion queue, growth, Gorged state, starvation.
+  - Size gate: edible, struggle or dangerous.
+  - Struggles (mash Consume), hunters with stamina, bites and knockback.
+  - Tier completion, the run log, and death causes.
+  - Every number comes from `data/balance/*.ron`, with a built-in fallback. `agtool
+    validate-data` checks the files.
+- **Tier 1, The Impact Site**: a crater seafloor with six species (diatom → lanternfish fry).
+  **Tier 2, The Shallows**: an alien coral reef with seven species (reef shrimp → reef shark).
+  Both are grey-box worlds built from the same seeded terrain the simulation collides with.
+- **Devourer**: camera-relative swimming (WASD/left stick), ascend and descend (Space/Ctrl,
+  bumpers), dash (Shift/A), and Consume (left mouse/RT), mashed during struggles.
+- **Body**: metaballs meshed with marching cubes off the main thread. It is re-meshed at each
+  growth stage, gets more lobes as it grows, and has a glowing, wobbling skin.
+- **Feel**:
+  - Hit-stop on big meals, bites and struggle results.
+  - Trauma camera shake, gamepad rumble and a swallow animation.
+  - The camera pulls back as you grow.
+  - Synthesized SFX (gulp, crunch, bite, grapple, tier-up swell, death), pitched lower as you
+    get bigger.
+  - Shake, rumble and SFX captions follow the accessibility settings.
+- **HUD**: biomass, tier progress, energy, integrity, stomach (with the Gorged threshold) and
+  the struggle meter. Status tags ([HUNGRY], [GORGED], …) carry text, not just color. Prey
+  size classes use a colorblind-safe palette plus shape markers (ring = struggle, cone =
+  dangerous).
+- **Tier-up**: a stratum title card, plus a 3.6 s zoom-out cinematic with the world swapped
+  behind a fade. Confirm or Back skips it.
+- **Death and restart**:
+  - The death screen shows the cause ("Eaten by a Lanternfish fry."), time, peak biomass,
+    meals, the tier reached, the last 10 timeline events, and a heatmap of where you roamed.
+  - Retry starts a fresh run immediately; Main menu returns to the title.
+  - Completing Tier 2 shows a Victory screen.
+- **Saves**: an autosave at the start of each tier (versioned RON). The main menu offers
+  "Continue (Tier N)". Death, victory and Abandon delete the save (permadeath).
+- **Balance bots**: `cargo bots --runs N`. These are headless, deterministic per seed and run
+  in parallel, with a play style drawn from the seed.
+- **Tooling**:
+  - Run screenshots: `--screenshot run-tier1|run-tier2|death <preset> <out>`, bot-driven at
+    an accelerated clock.
+  - `--benchmark` now measures a bot playing Tier 2. It logs memory and entities every minute
+    for soaks. The M0 flythrough is `--benchmark-scene testbed`.
+  - `--skip-menu` and `--seed N` for dev runs.
+- **Debug**: the F2 live balance panel edits the running simulation's numbers; Reload re-reads
+  `data/balance`.
+- **CI**: adds a `balance-bots` job (400 runs, fails above 40%) and bot-driven run screenshots
+  on lavapipe.
+
+### Acceptance checks
+
+| Check | Result |
+|---|---|
+| Clean clone builds | `cargo build --workspace` (CI) |
+| CI Windows build | `build-windows` job (unchanged from M0) |
+| Tests | 57 pass in `game_core` + `game` (`cargo t`); launcher 9, tools 1 |
+| Clippy | clean with `-D warnings`, with and without `game/dev` |
+| Bots: no death cause > 40% at Hostility 0 | **26.7% max** (1000 runs, seeds 1–1000; see below) |
+| Low preset meets the M1 target (60 fps at 1080p render-scaled, < 3.5 GB) | **needs your Mac**: see "Performance" |
+| Every asset in the manifest | M1 adds no files: all visuals are procedural and SFX are synthesized. `agtool verify-assets` passes |
+| No hardcoded balance values | all tunables live in `data/balance/*.ron`. Presentation constants (camera, UI, SFX) are not balance |
+| 30-minute soak | SOAK_RESULT |
+
+**Balance bots** (`cargo bots --runs 1000 --seed 1`, 532 s on 4 cores):
+
+| | |
+|---|---|
+| Completed both tiers | 18.8% (mean 630 s) |
+| Reached Tier 2 | 33.1% |
+| Mean run | 294 s |
+| Mean peak biomass | 941 |
+
+Death causes, as a share of deaths:
+
+| Cause | Share |
+|---|---|
+| Lanternfish fry (predation) | 26.7% |
+| Starvation | 20.4% |
+| Comb jelly (struggle) | 15.5% |
+| Reef shark (predation) | 9.0% |
+| Copepod (struggle) | 9.0% |
+| Arrow worm (predation) | 5.4% |
+| Sea turtle (struggle) | 5.4% |
+| Brine shrimp (struggle) | 5.2% |
+| Everything else | under 1% each |
 
 ### Stubbed / not yet done
 
-- Gameplay plugins (Creature, Ecosystem, Strata, Mutation, Threat, AI, Audio, Save, Mod,
-  Online) are empty shells. Audio only initializes Kira.
-- Asset hashes in `assets/manifest.json` are `null` until the first real fetch. The container
-  used for M0 could not reach Poly Haven or ambientCG (network policy), so the download
-  path has not run against the real hosts yet. Run `python3 tools/fetch_assets.py` on the
-  Mac once and commit the updated manifest and CREDITS.
-- In-game settings menu (launcher settings editor is M2), rebinding UI, colorblind modes.
-- SSR, irradiance volumes, DoF focus tracking, custom post-process nodes (caustics, absorption):
-  M2 visual pass.
-- Launcher: GPU/driver/display scan, benchmark/warm-up tabs, integrity, updates, mods, crash
-  upload, diagnostics zip, controller navigation (keyboard focus works; gamepad via gilrs is
-  M2): M2/M6.
+- Hostility levels, other strains, mutations, Threat, Tier 3+, the Genetic Memory payout
+  (the death screen shows 0) and other game modes: later milestones.
+- Visuals are grey-box: there are no fetched textures yet (`tools/fetch_assets.py` still has
+  to run on your Mac), and Tier 2 sand washes out near the camera on Low (see Backlog).
+- Audio: SFX only; the adaptive score and mixing buses are M2. No audio device was available
+  in the container, so I have not heard the sounds.
+- Rebinding UI, in-game settings menu and colorblind mode selection (the palette is already
+  colorblind-safe by default) are M2. The in-game console is not started.
+- The tier-up cinematic and Retry/Continue flows are only exercised by code paths and unit
+  tests, not by screenshots. Please check them in the playtest.
 
-### Bugs found and fixed while verifying M0
+### Bugs found and fixed while verifying M1
 
-- `WgpuSettings.backends = None` means "no renderer" in Bevy 0.20, so "auto" now keeps the
-  defaults.
-- Re-inserting `Camera` on scene reload zeroed its viewport for a frame, and GPU clustering hit
-  a wgpu validation error. Scenes now set `ClearColor` instead.
-- `SystemInformationDiagnosticsPlugin` was registered twice (benchmark + debug overlay), and
-  Bevy disables it under dynamic linking anyway. Memory now comes from `sysinfo` directly.
-- The glow shader wrote `emissive.a = 1` (full camera-exposure weighting), which crushed the
-  emission to near zero.
+- The bots starved with 0 meals: they fled any hunter in range and never fed. They now keep
+  feeding while steering away, and bolt only when a threat is close. The batch went from
+  ~48% starvation to 20%.
+- The creature mesh had holes at later growth stages: the marching-cubes box was too tight
+  for the summed field. The box now pads by √(Σr²), and a watertight test covers stages
+  0–20 at every preset resolution.
+- Pipelines waiting on a shader load were counted as failed, so the benchmark aborted on a
+  false positive. They now count as pending.
+- The struggle made the player immune to bites. Bites now land during struggles.
+- The death screen overflowed at 540p, and HUD labels were unreadable over bright sand.
+  Fixed with a compact layout and a HUD backdrop.
 
 ### Performance
 
-- Not measured on the M1 yet; that needs your Mac (see "Next steps").
-- In the container, lavapipe (CPU rendering) captures a 1920×1080 Low frame in about 20 s,
-  including shader compilation. That says nothing about GPU performance.
+- **Not measured on the M1 yet; that needs your Mac.**
+- In the container (llvmpipe, a CPU rasterizer, so the fps means nothing): the Tier 2 bot
+  benchmark at Low 1080p (render 1440×810) runs about 2.3 fps.
+  - Resident memory is 848 MiB, including the software renderer.
+  - There are about 1,400 entities.
 
-### Next steps (M1 Vertical slice)
+### Next steps
 
-1. On the Mac, check the dev loop: `tools/build.sh mac debug`, then `cargo dev`. The window,
-   menu, Esc pause and F3 perf overlay should all work.
-2. On the Mac, get official numbers from a release build: `tools/build.sh mac release`, then
-   `dist/mac-release/game --benchmark 30 --preset low`. Report the `BENCHMARK` line
-   (avg fps, 1% low, max frame, memory).
-3. On the Mac: `python3 tools/fetch_assets.py`, then commit `assets/manifest.json` and `CREDITS.md`.
-4. M1 work: Devourer strain, metabolism (`data/balance/*.ron`), marching-cubes body, Tier 1–2
-   grey-box, consumption feel, death, restart.
+1. **Playtest on the Mac** (debug build with hot reload):
+   ```
+   cargo dev
+   ```
+   Things I can't judge without your eyes and hands:
+   - Does eating feel good (hit-stop, shake, gulp)?
+   - Is mashing in struggles readable?
+   - Is the camera distance right at small and large sizes?
+   - Do the tier-up cinematic, death screen, Retry and Continue all behave?
+
+   F2 tunes balance live; F3 shows performance.
+2. **M1 performance numbers** (release):
+   ```
+   tools/build.sh mac release
+   dist/mac-release/game --benchmark 60 --preset low
+   ```
+   Paste the `BENCHMARK` line. The target is 60 fps avg at Low with memory under 3.5 GB.
+3. Optionally, a 30-minute soak on the Mac:
+   `dist/mac-release/game --benchmark 1800 --preset low`.
+4. M2 (after your feedback): the visual pass, adaptive audio and launcher v1, per the plan.
 
 ## How to resume
 
 1. Read `docs/ARCHITECTURE.md`.
-2. `cargo dev` runs the game; `cargo t` runs the tests.
-3. `cargo dev --screenshot testbed low screenshots/x.png` checks visuals.
+2. `cargo dev` runs the game; `cargo t` runs the tests; `cargo bots --runs 200` checks balance.
+3. Check visuals with
+   `cargo dev --screenshot run-tier1 low screenshots/x.png --resolution 1280x720` (also `run-tier2`,
+   `death`, `testbed`, `reef`, `menu`).
+
+## M0 Foundation (done, merged in PR #1)
+
+Workspace, pinned dependencies and M1 build settings; game skeleton with flow states and
+domain plugins; screenshot, benchmark and warm-up modes; asset pipeline (fetch_assets.py →
+KTX2 → manifest and credits, with procedural fallbacks); launcher skeleton; build script and
+CI for macOS, Windows and Linux. Pending from M0: run `python3 tools/fetch_assets.py` on the
+Mac and commit the manifest and CREDITS.
