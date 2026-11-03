@@ -1,0 +1,20 @@
+[package]
+name = "launcher"
+description = "Native launcher: system scan, settings, warm-up, benchmark, launch."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# Config, paths and localization only; no Bevy in the launcher.
+game_core = { workspace = true }
+eframe = { workspace = true, features = ["glow", "default_fonts", "x11", "wayland"] }
+sysinfo = { workspace = true, features = ["system", "disk"] }
+serde.workspace = true
+ron.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true

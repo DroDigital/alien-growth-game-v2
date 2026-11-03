@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # Keep per-user files (settings, logs) inside the workspace on CI.
+  AGG_USER_DIR: ${{ github.workspace }}/.ci-user
+
+jobs:
+  lint:
+    name: fmt + clippy + data
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev libx11-dev
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: lint
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Validate data, manifest and credits
+        run: |
+          cargo run -q -p tools -- validate-data
+          cargo run -q -p tools -- verify-assets
+          cargo run -q -p tools -- credits --check
+      - name: Asset fetcher syntax
+        run: python3 -m py_compile tools/fetch_assets.py
+
+  test:
+    name: tests + screenshot (Linux, software Vulkan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux build dependencies + lavapipe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev libx11-dev \
+            mesa-vulkan-drivers
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
+      # Build the workspace once; tests and the smoke runs below reuse it
+      # (a separate `cargo run -p game` would unify features differently and
+      # rebuild Bevy).
+      - run: cargo build --workspace
+      - run: cargo test --workspace
+      - name: Screenshot smoke test (Low + Medium)
+        env:
+          BEVY_ASSET_ROOT: ${{ github.workspace }}
+        run: |
+          mkdir -p ci-shots
+          ./target/debug/game --screenshot testbed low ci-shots/testbed_low.png
+          ./target/debug/game --screenshot testbed medium ci-shots/testbed_medium.png
+      - name: Shader warm-up across all presets
+        env:
+          BEVY_ASSET_ROOT: ${{ github.workspace }}
+        run: ./target/debug/game --warmup
+      - name: Launcher launches the game
+        env:
+          BEVY_ASSET_ROOT: ${{ github.workspace }}
+        run: ./target/debug/launcher --headless-launch --screenshot menu low ci-shots/menu_low.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-linux
+          path: ci-shots/
+          if-no-files-found: warn
+
+  build-macos:
+    name: build (macOS, Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: macos
+      - run: cargo test -p game_core -p tools
+      - run: tools/build.sh mac release
+      - name: Screenshot on Metal
+        run: |
+          mkdir -p ci-shots
+          ./dist/mac-release/game --screenshot testbed low ci-shots/testbed_low_metal.png || echo "::warning::Metal screenshot failed on the CI runner"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alien-growth-macos-arm64
+          path: |
+            dist/mac-release/
+            ci-shots/
+
+  build-windows:
+    name: build (Windows)
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain (from rust-toolchain.toml)
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows
+      - run: cargo test -p game_core -p tools
+      - run: tools/build.sh windows release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alien-growth-windows-x64
+          path: dist/windows-release/

@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "_comment": "Hand-edited list of third-party assets. tools/fetch_assets.py resolves, downloads, converts and records them in assets/manifest.json. Providers: polyhaven, ambientcg, freesound (needs FREESOUND_API_KEY), direct. Every entry needs a procedural fallback in the game.",
+  "assets": [
+    {
+      "id": "hdri.coast_sky",
+      "kind": "hdri",
+      "provider": "polyhaven",
+      "asset": "kloppenheim_06",
+      "map": "hdri",
+      "resolution": "1k",
+      "format": "hdr",
+      "convert": "hdr-cubemap",
+      "max_size": 256,
+      "output": "hdri/coast_sky.ktx2",
+      "fallback": "procedural_gradient_cubemap"
+    },
+    {
+      "id": "texture.seafloor_sand.color",
+      "kind": "texture",
+      "provider": "polyhaven",
+      "asset": "coast_sand_01",
+      "map": "Diffuse",
+      "resolution": "1k",
+      "format": "jpg",
+      "convert": "color",
+      "output": "textures/seafloor_sand_color.ktx2",
+      "fallback": "flat_color"
+    },
+    {
+      "id": "texture.seafloor_sand.normal",
+      "kind": "texture",
+      "provider": "polyhaven",
+      "asset": "coast_sand_01",
+      "map": "nor_gl",
+      "resolution": "1k",
+      "format": "jpg",
+      "convert": "normal",
+      "output": "textures/seafloor_sand_normal.ktx2",
+      "fallback": "mesh_normals"
+    },
+    {
+      "id": "texture.seafloor_sand.roughness",
+      "kind": "texture",
+      "provider": "polyhaven",
+      "asset": "coast_sand_01",
+      "map": "Rough",
+      "resolution": "1k",
+      "format": "jpg",
+      "convert": "roughness",
+      "output": "textures/seafloor_sand_roughness.ktx2",
+      "fallback": "constant_roughness"
+    },
+    {
+      "id": "texture.basalt.color",
+      "kind": "texture",
+      "provider": "ambientcg",
+      "asset": "Rock030",
+      "map": "Color",
+      "resolution": "1K",
+      "format": "JPG",
+      "convert": "color",
+      "output": "textures/basalt_color.ktx2",
+      "fallback": "flat_color"
+    },
+    {
+      "id": "texture.basalt.normal",
+      "kind": "texture",
+      "provider": "ambientcg",
+      "asset": "Rock030",
+      "map": "NormalGL",
+      "resolution": "1K",
+      "format": "JPG",
+      "convert": "normal",
+      "output": "textures/basalt_normal.ktx2",
+      "fallback": "mesh_normals"
+    },
+    {
+      "id": "texture.basalt.roughness",
+      "kind": "texture",
+      "provider": "ambientcg",
+      "asset": "Rock030",
+      "map": "Roughness",
+      "resolution": "1K",
+      "format": "JPG",
+      "convert": "roughness",
+      "output": "textures/basalt_roughness.ktx2",
+      "fallback": "constant_roughness"
+    },
+    {
+      "id": "texture.seafloor_sand.color@4k",
+      "kind": "texture",
+      "provider": "polyhaven",
+      "asset": "coast_sand_01",
+      "map": "Diffuse",
+      "resolution": "4k",
+      "format": "jpg",
+      "convert": "color",
+      "output": "textures/ultra/seafloor_sand_color.ktx2",
+      "fallback": "base_resolution_texture",
+      "ultra_pack": true
+    }
+  ]
+}

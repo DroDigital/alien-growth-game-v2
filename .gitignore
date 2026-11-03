@@ -1,0 +1,19 @@
+/target/
+/dist/
+*.pdb
+.DS_Store
+
+# Downloaded and converted assets are produced by tools/fetch_assets.py.
+# Only the manifest, sources list and hand-authored files are tracked.
+/assets/.cache/
+/assets/hdri/
+/assets/textures/
+/assets/models/
+/assets/sfx/
+/assets/music/
+
+# Local run output
+/screenshots/
+/benchmarks/
+*.profraw
+__pycache__/
